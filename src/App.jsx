@@ -601,10 +601,18 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
           deductMap[c.id] = (deductMap[c.id] || 0) + c.qty;
         }
       });
-      return prev.map(p => {
+      const updated = prev.map(p => {
         const q = deductMap[p.id];
         return q ? { ...p, batches: deductFIFO(p.batches || [], q) } : p;
       });
+      // ບັນທຶກສະເພາະສິນຄ້າທີ່ປ່ຽນແປງ (1 doc ຕໍ່ສິນຄ້າ — ປະຫຍັດ writes)
+      if (fbSave && fbSave.saveOneProduct) {
+        Object.keys(deductMap).forEach(id => {
+          const p = updated.find(x => String(x.id) === String(id));
+          if (p) fbSave.saveOneProduct(p);
+        });
+      }
+      return updated;
     });
     setReceipt(txn);
     setCart([]);
@@ -1346,6 +1354,8 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
           }
         }
         setMinimartProducts(next);
+        // ບັນທຶກສິນຄ້າທັງໝົດໄປ Firebase ຫຼັງ import (bulk save — ໃຊ້ writes ຫຼາຍແຕ່ນານໆເຮັດ)
+        if (typeof window !== "undefined" && window.fbSaveAllProducts) window.fbSaveAllProducts(next);
         setImportMsg(`✓ Done: added ${added} new, updated ${updated}`);
         setTimeout(() => setImportMsg(""), 5000);
       } catch (err) {
@@ -1378,8 +1388,15 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
       packOf: parseInt(newProd.packOf, 10) || 0,
       packParentBarcode: (newProd.packParentBarcode || "").trim(),
     };
-    if (editProd) setMinimartProducts(prev => prev.map(x => x.id === editProd.id ? { ...x, ...item } : x));
-    else setMinimartProducts(prev => [...prev, { id: Date.now(), ...item, batches: [] }]);
+    if (editProd) {
+      const updated = { ...editProd, ...item };
+      setMinimartProducts(prev => prev.map(x => x.id === editProd.id ? updated : x));
+      if (typeof window !== "undefined" && window.fbSaveOneProduct) window.fbSaveOneProduct(updated);
+    } else {
+      const created = { id: Date.now(), ...item, batches: [] };
+      setMinimartProducts(prev => [...prev, created]);
+      if (typeof window !== "undefined" && window.fbSaveOneProduct) window.fbSaveOneProduct(created);
+    }
     setShowProdModal(false);
   };
 
@@ -1414,8 +1431,14 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
     if (isNaN(qty) || qty <= 0) { setErrorMsg("Please enter a quantity"); return; }
     const prod = minimartProducts.find(p => p.id === parseInt(receiveData.productId, 10));
     const newBatch = { id: "b" + Date.now(), qty, expiry: receiveData.expiry || "", status: "ok" };
-    setMinimartProducts(prev => prev.map(p => p.id === parseInt(receiveData.productId, 10)
-      ? { ...p, batches: [...(p.batches || []), newBatch] } : p));
+    setMinimartProducts(prev => {
+      const updated = prev.map(p => p.id === parseInt(receiveData.productId, 10)
+        ? { ...p, batches: [...(p.batches || []), newBatch] } : p);
+      // ບັນທຶກສິນຄ້າທີ່ໄດ້ຮັບເຄື່ອງ
+      const target = updated.find(p => p.id === parseInt(receiveData.productId, 10));
+      if (target && typeof window !== "undefined" && window.fbSaveOneProduct) window.fbSaveOneProduct(target);
+      return updated;
+    });
     // ບັນທຶກ log ການຮັບເຄື່ອງເຂົ້າ
     const now = new Date();
     setReceiveLog(prev => [{
@@ -1436,10 +1459,15 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
 
   // --- ປ່ຽນStatusລັອດ (ກວດແລ້ວ / ເທີນແລ້ວ) ---
   const setBatchStatus = (productId, batchId, status) => {
-    setMinimartProducts(prev => prev.map(p => {
-      if (p.id !== productId) return p;
-      return { ...p, batches: (p.batches || []).map(b => b.id === batchId ? { ...b, status } : b) };
-    }));
+    setMinimartProducts(prev => {
+      const updated = prev.map(p => {
+        if (p.id !== productId) return p;
+        return { ...p, batches: (p.batches || []).map(b => b.id === batchId ? { ...b, status } : b) };
+      });
+      const target = updated.find(p => p.id === productId);
+      if (target && typeof window !== "undefined" && window.fbSaveOneProduct) window.fbSaveOneProduct(target);
+      return updated;
+    });
   };
 
   const openTxnModal = (t) => {
@@ -1549,6 +1577,7 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 600 }}>Products ({minimartProducts.length} items)</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={async () => { if (typeof window !== "undefined" && window.fbLoadProducts) { const list = await window.fbLoadProducts(); if (Array.isArray(list) && list.length > 0) { setMinimartProducts(list); setImportMsg("✓ Refreshed " + list.length + " products from cloud"); setTimeout(() => setImportMsg(""), 3000); } } }} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", color: "var(--text1)", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>🔄 Refresh</button>
                 <button onClick={exportProducts} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>⬇️ Export CSV</button>
                 <label style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
                   ⬆️ Import CSV
@@ -2413,9 +2442,13 @@ export default function App() {
         const fb = await import("./firebase.js");
         if (!fb || !fb.db) throw new Error("no-db");
         if (cancelled) return;
-        fbRef.current = { ready: true, save: fb.saveDoc, saveProducts: fb.saveProducts, saveTransactions: fb.saveTransactions, saveOneTransaction: fb.saveOneTransaction, deleteTransaction: fb.deleteTransaction };
-        if (typeof window !== "undefined") { window.fbSaveOneTxn = fb.saveOneTransaction; window.fbDeleteTxn = fb.deleteTransaction; }
-        unsubs.push(fb.watchProducts((v) => { loadedRef.current.products = true; if (Array.isArray(v) && v.length > 0) setMinimartProducts(v); }));
+        fbRef.current = { ready: true, save: fb.saveDoc, saveProducts: fb.saveProducts, saveOneProduct: fb.saveOneProduct, deleteOneProduct: fb.deleteOneProduct, loadProductsOnce: fb.loadProductsOnce, saveTransactions: fb.saveTransactions, saveOneTransaction: fb.saveOneTransaction, deleteTransaction: fb.deleteTransaction };
+        if (typeof window !== "undefined") { window.fbSaveOneTxn = fb.saveOneTransaction; window.fbDeleteTxn = fb.deleteTransaction; window.fbSaveOneProduct = fb.saveOneProduct; window.fbDeleteOneProduct = fb.deleteOneProduct; window.fbLoadProducts = fb.loadProductsOnce; window.fbSaveAllProducts = fb.saveProducts; }
+        // ໂຫຼດສິນຄ້າຄັ້ງດຽວ (ບໍ່ realtime — ປະຫຍັດ Firebase reads)
+        fb.loadProductsOnce().then(list => {
+          loadedRef.current.products = true;
+          if (Array.isArray(list) && list.length > 0) setMinimartProducts(list);
+        });
         unsubs.push(fb.watchTransactions((v) => { loadedRef.current.txns = true; if (Array.isArray(v)) setTransactions(v); }));
         unsubs.push(fb.watchDoc("users", (v) => { loadedRef.current.users = true; if (Array.isArray(v)) setUsers(v); }));
         unsubs.push(fb.watchDoc("config", (v) => { loadedRef.current.config = true; if (v) setShopConfig(v); }));
@@ -2431,7 +2464,7 @@ export default function App() {
     return () => { cancelled = true; unsubs.forEach(u => { try { u && u(); } catch {} }); };
   }, []);
 
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.products && fbRef.current.saveProducts) fbRef.current.saveProducts(minimartProducts); }, [minimartProducts]);
+  // ບໍ່ໃຊ້ bulk save ສຳລັບ products ອີກແລ້ວ — ໃຊ້ saveOneProduct/deleteOneProduct ໂດຍກົງ
   // ບໍ່ໃຊ້ bulk save ສຳລັບ transactions ອີກແລ້ວ — ຂາຍແຕ່ລະບິນຈະຖືກ save ໂດຍກົງດ້ວຍ saveOneTransaction
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.users) fbRef.current.save("users", users); }, [users]);
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.config) fbRef.current.save("config", shopConfig); }, [shopConfig]);
