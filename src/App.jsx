@@ -119,7 +119,7 @@ const css = `
 
   .print-only { display: none; }
   @media print {
-    @page { margin: 10mm; }
+    @page { margin: 0; size: 80mm auto; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* reset ພື້ນຫຼັງເຂັ້ມຂອງທຸກ ancestor ໃຫ້ເປັນຂາວ */
     html, body, #root, #root * { background: #fff !important; background-color: #fff !important; height: auto !important; overflow: visible !important; }
@@ -137,7 +137,7 @@ const css = `
     }
 
     body.printing-receipt #printable-receipt {
-      position: absolute; left: 0; top: 0; width: 80mm; margin: 0; padding: 10px; border: none !important;
+      position: absolute; left: 0; top: 0; width: 72mm; margin: 0; padding: 2mm 3mm; border: none !important; font-size: 11px !important; line-height: 1.3 !important;
     }
     body.printing-labels #printable-labels {
       position: absolute; left: 0; top: 0; width: 100%;
@@ -1009,26 +1009,27 @@ function ShiftReport({ shift, shopConfig, onDone }) {
 function ReceiptView({ receipt, shopConfig, onDone, reprint }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 56px)", background: "var(--bg0)" }}>
-      <div id="printable-receipt" style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 16, padding: 32, width: 360 }}>
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          {shopConfig.logo && <img src={shopConfig.logo} alt="" style={{ height: 48, objectFit: "contain", marginBottom: 6 }} onError={e => e.target.style.display = "none"} />}
-          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text1)", marginBottom: 4, fontFamily: "var(--script)" }}>{shopConfig.name}</div>
-          {reprint && <div style={{ fontSize: 12, fontWeight: 700, color: "var(--blue)", marginBottom: 4 }}>*** COPY (Reprint) ***</div>}
-          <div style={{ fontSize: 12, color: "var(--text2)" }}>Bill No: {receipt.id} · {receipt.date} {receipt.time}</div>
+      <div id="printable-receipt" style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 16, padding: 16, width: 320 }}>
+        <div style={{ textAlign: "center", marginBottom: 6 }}>
+          {shopConfig.logo && <img src={shopConfig.logo} alt="" style={{ height: 36, objectFit: "contain", marginBottom: 2 }} onError={e => e.target.style.display = "none"} />}
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text1)", marginBottom: 2, fontFamily: "var(--script)" }}>{shopConfig.name}</div>
+          {shopConfig.promptPay && <div style={{ fontSize: 10, color: "var(--text2)", marginBottom: 2 }}>Tel: {shopConfig.promptPay}</div>}
+          {reprint && <div style={{ fontSize: 11, fontWeight: 700, color: "var(--blue)", marginBottom: 2 }}>*** COPY ***</div>}
+          <div style={{ fontSize: 10, color: "var(--text2)" }}>{receipt.date} {receipt.time} · #{(receipt.id || "").slice(-6)}</div>
         </div>
-        <div style={{ borderTop: "1px dashed var(--border)", borderBottom: "1px dashed var(--border)", padding: "14px 0", margin: "14px 0" }}>
+        <div style={{ borderTop: "1px dashed var(--border)", borderBottom: "1px dashed var(--border)", padding: "6px 0", margin: "6px 0" }}>
           {(receipt.cartItems || []).map(i => (
-            <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-              <span>{i.name} ×{i.qty}</span>
+            <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>
+              <span style={{ flex: 1, paddingRight: 6 }}>{i.name} ×{i.qty}</span>
               <span style={{ fontFamily: "var(--mono)" }}>₭{(i.price * i.qty).toLocaleString()}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          <span>Grand Total</span><span style={{ color: "var(--amber)" }}>₭{(receipt.total || 0).toLocaleString()}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, marginBottom: 2 }}>
+          <span>Total</span><span style={{ color: "var(--amber)" }}>₭{(receipt.total || 0).toLocaleString()}</span>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 20, textAlign: "right" }}>
-          Paid: {receipt.method === "Split" ? `Transfer ₭${(receipt.revenueQR || 0).toLocaleString()} + Cash ₭${(receipt.revenueCash || 0).toLocaleString()}` : receipt.method}
+        <div style={{ fontSize: 11, color: "var(--text2)", marginBottom: 10, textAlign: "right" }}>
+          Paid: {receipt.method === "Split" ? `QR ₭${(receipt.revenueQR || 0).toLocaleString()} + Cash ₭${(receipt.revenueCash || 0).toLocaleString()}` : receipt.method}
         </div>
         <div className="no-print" style={{ display: "flex", gap: 10 }}>
           <button onClick={() => { document.body.classList.add("printing-receipt"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing-receipt"), 300); }, 80); }} style={{ flex: 1, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px", color: "#fff", cursor: "pointer" }}>🖨️ Print</button>
@@ -1193,6 +1194,7 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
   const dashboardTxns = transactions.filter(t => {
     if (viewMode === "daily") return t.date === filterDate;
     if (viewMode === "monthly") return t.date && t.date.startsWith(filterMonth);
+    if (viewMode === "all") return true;
     return true;
   });
 
@@ -1475,11 +1477,11 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
                 <select value={viewMode} onChange={e => setViewMode(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }}>
                   <option value="daily">Daily</option>
                   <option value="monthly">Monthly</option>
+                  <option value="all">All bills</option>
                 </select>
-                {viewMode === "daily"
-                  ? <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />
-                  : <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />
-                }
+                {viewMode === "daily" && <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />}
+                {viewMode === "monthly" && <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />}
+                {viewMode === "all" && <span style={{ fontSize: 12, color: "var(--text3)", alignSelf: "center" }}>Showing {transactions.length} bills total</span>}
               </div>
             </div>
 
@@ -1920,11 +1922,11 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
                 <select value={viewMode} onChange={e => setViewMode(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }}>
                   <option value="daily">Daily</option>
                   <option value="monthly">Monthly</option>
+                  <option value="all">All bills</option>
                 </select>
-                {viewMode === "daily"
-                  ? <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />
-                  : <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />
-                }
+                {viewMode === "daily" && <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />}
+                {viewMode === "monthly" && <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", color: "#fff" }} />}
+                {viewMode === "all" && <span style={{ fontSize: 12, color: "var(--text3)", alignSelf: "center" }}>Showing {transactions.length} bills total</span>}
               </div>
             </div>
             {dashboardTxns.length === 0
