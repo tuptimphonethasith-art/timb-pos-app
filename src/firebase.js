@@ -59,24 +59,56 @@ export async function saveOneProduct(product) {
   } catch (e) { console.error("✗ saveOneProduct", e.message); }
 }
 
-// ບັນທຶກສິນຄ້າທັງໝົດ (ໃຊ້ຕອນ import CSV ເທົ່ານັ້ນ)
-export async function saveProducts(products) {
-  if (!Array.isArray(products)) return;
-  try {
-    const CHUNK = 400;
-    for (let i = 0; i < products.length; i += CHUNK) {
-      const batch = writeBatch(db);
-      const slice = products.slice(i, i + CHUNK);
-      slice.forEach(p => {
-        if (!p.id) return;
-        const safe = { ...p };
-        if (safe.image && safe.image.length > 100000) safe.image = "";
-        batch.set(doc(db, PRODUCTS_PATH, String(p.id)), safe);
-      });
-      await batch.commit();
+// ===== ບັນທຶກສິນຄ້າທັງໝົດ (ໃຊ້ຕອນ import CSV) =====
+// ໂຄດໃໝ່: ບໍ່ຍອມແພ້ — ຖ້າ batch ໃດ fail (ໂຄຕ້າ/network) ຈະ retry ອັດຕະໂນມັດ
+// + ລໍ່ນ້ອຍໆ ລະຫວ່າງ batch ກັນ rate-limit + ບອກ progress + ສືບຕໍ່ batch ຕໍ່ໄປ
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+export async function saveProducts(products, onProgress) {
+  if (!Array.isArray(products)) return { saved: 0, failed: 0 };
+  const CHUNK = 200;        // ນ້ອຍລົງຈາກ 400 = ປອດໄພຂຶ້ນ
+  const MAX_RETRY = 6;      // ລອງໃໝ່ສູງສຸດ 6 ຄັ້ງຕໍ່ batch
+  const total = products.length;
+  let saved = 0, failed = 0;
+
+  for (let i = 0; i < total; i += CHUNK) {
+    const slice = products.slice(i, i + CHUNK).filter(p => p && p.id);
+    let attempt = 0, ok = false;
+
+    while (attempt < MAX_RETRY && !ok) {
+      try {
+        const batch = writeBatch(db);
+        slice.forEach(p => {
+          const safe = { ...p };
+          if (safe.image && safe.image.length > 100000) safe.image = "";
+          batch.set(doc(db, PRODUCTS_PATH, String(p.id)), safe);
+        });
+        await batch.commit();
+        ok = true;
+        saved += slice.length;
+      } catch (e) {
+        attempt++;
+        const wait = Math.min(1000 * Math.pow(2, attempt - 1), 16000); // 1s,2s,4s,8s,16s,16s
+        console.warn(`batch ${i}-${i + CHUNK} fail (try ${attempt}/${MAX_RETRY}): ${e.code || e.message} — ລໍ່ ${wait/1000}s`);
+        await sleep(wait);
+      }
     }
-    console.log("✓ saved", products.length, "products");
-  } catch (e) { console.error("✗ saveProducts", e.message); }
+
+    if (!ok) {
+      failed += slice.length;
+      console.error(`✗ batch ${i} ລົ້ມເຫຼວຫຼັງລອງ ${MAX_RETRY} ຄັ້ງ`);
+    }
+
+    const done = Math.min(i + CHUNK, total);
+    console.log(`… progress: ${done}/${total} (saved ${saved}, failed ${failed})`);
+    if (typeof onProgress === "function") onProgress(done, total, saved, failed);
+
+    await sleep(250); // ລໍ່ນ້ອຍໆ ກັນ rate-limit
+  }
+
+  if (failed === 0) console.log(`✓✓ saveProducts ສຳເລັດໝົດ: ${saved}/${total} products`);
+  else console.warn(`⚠ saveProducts ສຳເລັດ ${saved}, ລົ້ມເຫຼວ ${failed} — ກົດ Import ຄືນເພື່ອ save ສ່ວນທີ່ເຫຼືອ`);
+  return { saved, failed };
 }
 
 export async function deleteOneProduct(id) {
