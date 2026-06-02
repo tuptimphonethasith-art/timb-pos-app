@@ -20,6 +20,7 @@ try { enableIndexedDbPersistence(db); } catch (e) { console.warn("offline:", e?.
 
 const SHOP = "shop_main";
 
+// ===== Single doc =====
 export async function saveDoc(name, data) {
   try {
     await setDoc(doc(db, "shops", SHOP, "data", name), { value: data, updatedAt: Date.now() });
@@ -33,6 +34,7 @@ export function watchDoc(name, callback) {
   }, (err) => console.error("watchDoc " + name, err));
 }
 
+// ===== Products =====
 const PRODUCTS_PATH = `shops/${SHOP}/products`;
 
 export async function saveProducts(products) {
@@ -62,8 +64,19 @@ export function watchProducts(callback) {
   }, (err) => console.error("watchProducts", err));
 }
 
+// ===== Transactions =====
 const TXN_PATH = `shops/${SHOP}/transactions`;
 
+// ໃໝ່: ບັນທຶກ 1 ບິນ ໃໝ່ໂດຍກົງ (ບໍ່ overwrite array ທັງໝົດ)
+export async function saveOneTransaction(txn) {
+  if (!txn || !txn.id) return;
+  try {
+    await setDoc(doc(db, TXN_PATH, String(txn.id)), txn);
+    console.log("✓ saved txn", txn.id);
+  } catch (e) { console.error("✗ saveOneTransaction", e.message); }
+}
+
+// ເກົ່າ: ບັນທຶກ array ທັງໝົດ (ໃຊ້ສຳລັບ Edit/Delete ໃນ Admin)
 export async function saveTransactions(txns) {
   if (!Array.isArray(txns)) return;
   try {
@@ -79,6 +92,15 @@ export async function saveTransactions(txns) {
     }
     console.log("✓ saved", txns.length, "transactions");
   } catch (e) { console.error("✗ saveTransactions", e.message); }
+}
+
+// ລົບບິນສະເພາະ (Admin → Bills → Del)
+export async function deleteTransaction(txnId) {
+  if (!txnId) return;
+  try {
+    await deleteDoc(doc(db, TXN_PATH, String(txnId)));
+    console.log("✓ deleted txn", txnId);
+  } catch (e) { console.error("✗ deleteTransaction", e.message); }
 }
 
 export function watchTransactions(callback) {

@@ -391,7 +391,7 @@ function CustomerDisplayStandalone({ displayStation }) {
 }
 
 
-function POSScreen({ user, station, minimartProducts, setMinimartProducts, transactions, setTransactions, shifts, setShifts, activeShifts, setActiveShifts, setSalesStats, shopConfig, onSyncData }) {
+function POSScreen({ user, station, minimartProducts, setMinimartProducts, transactions, setTransactions, shifts, setShifts, activeShifts, setActiveShifts, setSalesStats, shopConfig, onSyncData, fbSave }) {
   const currentShift = activeShifts[station] || null;
   const [showOpenShift, setShowOpenShift] = useState(false);
   const [openFloat, setOpenFloat] = useState("");
@@ -568,6 +568,10 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
       revenueCard: rCard
     };
     setTransactions(prev => [txn, ...prev]);
+    // ບັນທຶກບິນໃໝ່ໂດຍກົງ Firebase (ບໍ່ລໍ useEffect — ໄວ + ບໍ່ມີ race condition)
+    if (fbSave && fbSave.saveOneTransaction) {
+      fbSave.saveOneTransaction(txn);
+    }
     // ສະສົມສະຖິຕິຂາຍ (ສຳລັບ Top Selling — ບໍ່ຫາຍຕອນປິດກະ) ພ້ອມກຳໄລ
     setSalesStats(prev => {
       const next = { ...prev };
@@ -1041,7 +1045,7 @@ function ReceiptView({ receipt, shopConfig, onDone, reprint }) {
 }
 
 // --- ADMIN SCREEN ---
-function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiveLog, setReceiveLog, users, setUsers, currentUser, minimartProducts, setMinimartProducts, shopConfig, setShopConfig, onReprint }) {
+function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiveLog, setReceiveLog, users, setUsers, currentUser, minimartProducts, setMinimartProducts, shopConfig, setShopConfig, onReprint, fbDelete }) {
   const [tab, setTab] = useState("dashboard");
   const [viewMode, setViewMode] = useState("daily");
   const [filterDate, setFilterDate] = useState(TODAY_DATE);
@@ -1452,7 +1456,10 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
     if (newTxn.method === "Cash") rCash = tTotal;
     else if (newTxn.method === "QR") rQR = tTotal;
     else if (newTxn.method === "Split") { rQR = parseFloat(newTxn.revenueQR || 0); rCash = tTotal - rQR; }
-    setTransactions(prev => prev.map(x => x.id === editTxn.id ? { ...x, date: newTxn.date, total: tTotal, method: newTxn.method, revenueCash: rCash, revenueQR: rQR } : x));
+    const updated = { ...editTxn, date: newTxn.date, total: tTotal, method: newTxn.method, revenueCash: rCash, revenueQR: rQR };
+    setTransactions(prev => prev.map(x => x.id === editTxn.id ? updated : x));
+    // ບັນທຶກໂດຍກົງ Firebase
+    if (typeof window !== "undefined" && window.fbSaveOneTxn) window.fbSaveOneTxn(updated);
     setShowTxnModal(false);
   };
 
@@ -1931,7 +1938,7 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
             </div>
             {dashboardTxns.length === 0
               ? <div style={{ textAlign: "center", padding: 40, color: "var(--text3)" }}>No records</div>
-              : <TxnTable transactions={dashboardTxns} onEdit={openTxnModal} onDelete={(id) => setTransactions(prev => prev.filter(t => t.id !== id))} onReprint={onReprint} />
+              : <TxnTable transactions={dashboardTxns} onEdit={openTxnModal} onDelete={(id) => { setTransactions(prev => prev.filter(t => t.id !== id)); if (fbDelete) fbDelete(id); }} onReprint={onReprint} />
             }
           </div>
         )}
@@ -2406,7 +2413,8 @@ export default function App() {
         const fb = await import("./firebase.js");
         if (!fb || !fb.db) throw new Error("no-db");
         if (cancelled) return;
-        fbRef.current = { ready: true, save: fb.saveDoc, saveProducts: fb.saveProducts, saveTransactions: fb.saveTransactions };
+        fbRef.current = { ready: true, save: fb.saveDoc, saveProducts: fb.saveProducts, saveTransactions: fb.saveTransactions, saveOneTransaction: fb.saveOneTransaction, deleteTransaction: fb.deleteTransaction };
+        if (typeof window !== "undefined") { window.fbSaveOneTxn = fb.saveOneTransaction; window.fbDeleteTxn = fb.deleteTransaction; }
         unsubs.push(fb.watchProducts((v) => { loadedRef.current.products = true; if (Array.isArray(v) && v.length > 0) setMinimartProducts(v); }));
         unsubs.push(fb.watchTransactions((v) => { loadedRef.current.txns = true; if (Array.isArray(v)) setTransactions(v); }));
         unsubs.push(fb.watchDoc("users", (v) => { loadedRef.current.users = true; if (Array.isArray(v)) setUsers(v); }));
@@ -2424,7 +2432,7 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.products && fbRef.current.saveProducts) fbRef.current.saveProducts(minimartProducts); }, [minimartProducts]);
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.txns && fbRef.current.saveTransactions) fbRef.current.saveTransactions(transactions); }, [transactions]);
+  // ບໍ່ໃຊ້ bulk save ສຳລັບ transactions ອີກແລ້ວ — ຂາຍແຕ່ລະບິນຈະຖືກ save ໂດຍກົງດ້ວຍ saveOneTransaction
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.users) fbRef.current.save("users", users); }, [users]);
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.config) fbRef.current.save("config", shopConfig); }, [shopConfig]);
   useEffect(() => { if (fbRef.current.ready && loadedRef.current.shifts) fbRef.current.save("shifts", shifts); }, [shifts]);
@@ -2479,6 +2487,7 @@ export default function App() {
             setSalesStats={setSalesStats}
             shopConfig={shopConfig}
             onSyncData={setSyncData}
+            fbSave={fbRef.current}
           />
         : <AdminScreen
             transactions={transactions}
@@ -2495,6 +2504,7 @@ export default function App() {
             shopConfig={shopConfig}
             setShopConfig={setShopConfig}
             onReprint={setAdminReprintTxn}
+            fbDelete={fbRef.current.deleteTransaction}
           />
       )}
     </div>
