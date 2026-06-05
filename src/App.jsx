@@ -89,6 +89,17 @@ const INITIAL_USERS = [
 
 const MINIMART_CATEGORIES = ["All", "Drinks", "Snacks", "Foods", "Others"];
 
+// ===== ຄຳແປໃບບິນ 6 ພາສາ (ໃຊ້ໃນ ReceiptView ເລືອກພາສາພິມ) =====
+const RECEIPT_LANG = {
+  lo: { name: "ລາວ", billNo: "ເລກບິນ", date: "ວັນທີ", time: "ເວລາ", cashier: "ພະນັກງານ", currency: "ສະກຸນເງິນ", item: "ລາຍການ", qty: "ຈຳນວນ", subtotal: "ມູນຄ່າສິນຄ້າ", vat: "ອາກອນມູນຄ່າເພີ່ມ VAT 10%", total: "ລວມທັງໝົດ TOTAL", pay: "ຈ່າຍດ້ວຍ", cash: "ເງິນສົດ", transfer: "ໂອນ", card: "ບັດ", split: "ໂອນ+ເງິນສົດ", received: "ຮັບເງິນ", change: "ເງິນທອນ", copy: "*** ສຳເນົາ ***", footer: "ສິນຄ້ານີ້ຊື້ໄປແລ້ວ ບໍ່ສາມາດປ່ຽນ ຫຼື ສົ່ງຄືນໄດ້", thanks: "ຂອບໃຈທີ່ໃຊ້ບໍລິການ" },
+  th: { name: "ไทย", billNo: "เลขที่บิล", date: "วันที่", time: "เวลา", cashier: "พนักงาน", currency: "สกุลเงิน", item: "รายการ", qty: "จำนวน", subtotal: "มูลค่าสินค้า", vat: "ภาษีมูลค่าเพิ่ม VAT 10%", total: "รวมทั้งหมด TOTAL", pay: "ชำระโดย", cash: "เงินสด", transfer: "โอน", card: "บัตร", split: "โอน+เงินสด", received: "รับเงิน", change: "เงินทอน", copy: "*** สำเนา ***", footer: "สินค้าที่ซื้อแล้ว ไม่สามารถเปลี่ยนหรือคืนได้", thanks: "ขอบคุณที่ใช้บริการ" },
+  zh: { name: "中文", billNo: "单号", date: "日期", time: "时间", cashier: "收银员", currency: "货币", item: "商品", qty: "数量", subtotal: "小计", vat: "增值税 VAT 10%", total: "总计 TOTAL", pay: "支付方式", cash: "现金", transfer: "转账", card: "刷卡", split: "转账+现金", received: "收款", change: "找零", copy: "*** 副本 ***", footer: "商品售出后，恕不退换", thanks: "谢谢惠顾" },
+  en: { name: "English", billNo: "Bill No", date: "Date", time: "Time", cashier: "Cashier", currency: "Currency", item: "Item", qty: "Qty", subtotal: "Subtotal", vat: "VAT 10%", total: "TOTAL", pay: "Paid by", cash: "Cash", transfer: "Transfer", card: "Card", split: "Transfer+Cash", received: "Received", change: "Change", copy: "*** COPY ***", footer: "Goods sold are not returnable or exchangeable", thanks: "Thank you" },
+  ko: { name: "한국어", billNo: "영수증 번호", date: "날짜", time: "시간", cashier: "직원", currency: "통화", item: "품목", qty: "수량", subtotal: "소계", vat: "부가세 VAT 10%", total: "합계 TOTAL", pay: "결제수단", cash: "현금", transfer: "계좌이체", card: "카드", split: "이체+현금", received: "받은 금액", change: "거스름돈", copy: "*** 사본 ***", footer: "구매하신 상품은 교환 및 반품이 불가합니다", thanks: "감사합니다" },
+  vi: { name: "Tiếng Việt", billNo: "Số hóa đơn", date: "Ngày", time: "Giờ", cashier: "Nhân viên", currency: "Tiền tệ", item: "Mặt hàng", qty: "SL", subtotal: "Tạm tính", vat: "Thuế GTGT VAT 10%", total: "TỔNG CỘNG", pay: "Thanh toán", cash: "Tiền mặt", transfer: "Chuyển khoản", card: "Thẻ", split: "CK+Tiền mặt", received: "Nhận", change: "Tiền thối", copy: "*** BẢN SAO ***", footer: "Hàng đã mua không thể đổi hoặc trả lại", thanks: "Cảm ơn quý khách" },
+};
+const RECEIPT_LANG_ORDER = ["lo", "th", "zh", "en", "ko", "vi"];
+
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Dancing+Script:wght@700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -156,7 +167,7 @@ const css = `
 `;
 
 // --- NUMPAD ---
-function Numpad({ value, onChange, withQuickAdd, exactAmount, onEnter }) {
+function Numpad({ value, onChange, withQuickAdd, exactAmount, onEnter, hideQuickAmounts }) {
   const append = (num) => { if (value === "0" && num !== "000") onChange(num); else onChange(value + num); };
   const backspace = () => onChange(value.slice(0, -1));
   const clear = () => onChange("");
@@ -167,10 +178,12 @@ function Numpad({ value, onChange, withQuickAdd, exactAmount, onEnter }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
       {withQuickAdd && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 4 }}>
+          {!hideQuickAmounts && <>
           <button onClick={() => addAmt(20000)} style={{background:"var(--bg3)", color:"#fff", borderRadius:8, cursor:"pointer", border:"1px solid var(--border)"}}>+20k</button>
           <button onClick={() => addAmt(50000)} style={{background:"var(--bg3)", color:"#fff", borderRadius:8, cursor:"pointer", border:"1px solid var(--border)"}}>+50k</button>
           <button onClick={() => addAmt(100000)} style={{background:"var(--bg3)", color:"#fff", borderRadius:8, cursor:"pointer", border:"1px solid var(--border)"}}>+100k</button>
-          <button onClick={() => onChange(String(exactAmount))} style={{ background: "var(--amber)", color: "#000", border: "none", borderRadius:8, cursor:"pointer" }}>Exact</button>
+          </>}
+          <button onClick={() => onChange(String(exactAmount))} style={{ background: "var(--amber)", color: "#000", border: "none", borderRadius:8, cursor:"pointer", gridColumn: hideQuickAmounts ? "1 / -1" : "auto", padding: hideQuickAmounts ? "12px 0" : 0, fontWeight: 700 }}>Exact</button>
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
@@ -397,6 +410,9 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
   const [openFloat, setOpenFloat] = useState("");
   const [showCloseShift, setShowCloseShift] = useState(false);
   const [countedCash, setCountedCash] = useState("");
+  const [countTHB, setCountTHB] = useState("");
+  const [countVND, setCountVND] = useState("");
+  const [activeCount, setActiveCount] = useState("LAK"); // ຊ່ອງນັບເງິນທີ່ກຳລັງພິມ
   const [closedReceipt, setClosedReceipt] = useState(null); // shift report after close
   const [showHistory, setShowHistory] = useState(false); // ໜ້າເບິ່ງbillsຍ້ອນຫຼັງ
   const [reprintTxn, setReprintTxn] = useState(null); // billsທີ່ເລືອກປິ້ນຄືນ
@@ -409,6 +425,7 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
   const [visibleCount, setVisibleCount] = useState(60); // ສະແດງເທື່ອລະ 60 ໂຕ
   const [payModal, setPayModal] = useState(false);
   const [payMethod, setPayMethod] = useState("Cash");
+  const [payCurrency, setPayCurrency] = useState("LAK"); // ສະກຸນທີ່ຮັບເງິນສົດ: LAK/THB/VND (ທອນເປັນກີບສະເໝີ)
   const [cashGiven, setCashGiven] = useState("");
   const [qrGiven, setQrGiven] = useState("");
   const [activeInput, setActiveInput] = useState("cash");
@@ -531,7 +548,21 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
     return { ...i, qty: next };
   }).filter(i => i.qty > 0));
 
-  const cashAmt = parseInt(cashGiven || 0, 10);
+  // ===== ເລດແລກປ່ຽນ (ປັບໄດ້ຫຼັງບ້ານ) =====
+  const rateTHB = Number(shopConfig.rateTHB) || 630;   // 1 ບາດ = ? ກີບ
+  const rateVND = Number(shopConfig.rateVND) || 850;   // 1,000 ຍວນ = ? ກີບ
+  // ແປງເງິນຕ່າງປະເທດ → ກີບ
+  const toLAK = (amt) => payCurrency === "THB" ? Math.round(amt * rateTHB)
+    : payCurrency === "VND" ? Math.round(amt * rateVND / 1000)
+    : Math.round(amt);
+  // ຍອດ total (ກີບ) → ສະກຸນທີ່ເລືອກ (ໃຫ້ພະນັກງານຮູ້ວ່າຕ້ອງເກັບເທົ່າໃດ)
+  const totalInCurrency = payCurrency === "THB" ? total / rateTHB
+    : payCurrency === "VND" ? total / rateVND * 1000
+    : total;
+
+  const cashGivenNum = parseFloat(cashGiven || 0);
+  // cashAmt = ມູນຄ່າເງິນສົດທີ່ຮັບ ຄິດເປັນກີບ (Cash ໃຊ້ສະກຸນທີ່ເລືອກ; Split ໃຊ້ກີບສະເໝີ)
+  const cashAmt = payMethod === "Cash" ? toLAK(cashGivenNum) : parseInt(cashGiven || 0, 10);
   const qrAmt = parseInt(qrGiven || 0, 10);
   let isPaymentValid = false;
   let change = 0;
@@ -565,7 +596,12 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
       cartItems: [...cart],
       revenueCash: rCash,
       revenueQR: rQR,
-      revenueCard: rCard
+      revenueCard: rCard,
+      cashReceived: cashAmt,
+      change: change,
+      payCurrency: payMethod === "Cash" ? payCurrency : "LAK",
+      foreignReceived: (payMethod === "Cash" && payCurrency !== "LAK") ? cashGivenNum : null,
+      rateUsed: payCurrency === "THB" ? rateTHB : payCurrency === "VND" ? rateVND : null
     };
     setTransactions(prev => [txn, ...prev]);
     // ບັນທຶກບິນໃໝ່ໂດຍກົງ Firebase (ບໍ່ລໍ useEffect — ໄວ + ບໍ່ມີ race condition)
@@ -619,6 +655,7 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
     setPayModal(false);
     setCashGiven("");
     setQrGiven("");
+    setPayCurrency("LAK");
   };
 
   // --- ເປີດກະ ---
@@ -640,19 +677,40 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
   // --- ຄຳນວນTotalກະປະຈຸບັນ (ສະເພາະbillsຂອງກະນີ້) ---
   const shiftTxns = currentShift ? transactions.filter(t => t.shiftId === currentShift.id) : [];
   const shiftSales = (() => {
-    let cash = 0, qr = 0, card = 0, profit = 0;
+    let cash = 0, qr = 0, card = 0, profit = 0;           // ຍອດຂາຍ (ກີບ)
+    let lakDrawer = 0, thbDrawer = 0, vndDrawer = 0;       // ເງິນຈິງໃນລິ້ນຊັກ ແຍກສະກຸນ
     shiftTxns.forEach(t => {
-      if (t.method === "Split") { cash += (t.revenueCash || 0); qr += (t.revenueQR || 0); }
-      else if (t.method === "Cash") cash += (t.total || 0);
+      profit += (t.profit || 0);
+      if (t.method === "Split") { cash += (t.revenueCash || 0); qr += (t.revenueQR || 0); lakDrawer += (t.revenueCash || 0); }
+      else if (t.method === "Cash") {
+        cash += (t.total || 0);
+        if (t.payCurrency === "THB") { thbDrawer += (t.foreignReceived || 0); lakDrawer -= (t.change || 0); }       // ຮັບບາດ, ທອນກີບ
+        else if (t.payCurrency === "VND") { vndDrawer += (t.foreignReceived || 0); lakDrawer -= (t.change || 0); }  // ຮັບຍວນ, ທອນກີບ
+        else { lakDrawer += (t.total || 0); }                                                                       // ຮັບກີບ
+      }
       else if (t.method === "QR") qr += (t.total || 0);
       else if (t.method === "Card") card += (t.total || 0);
-      profit += (t.profit || 0);
     });
-    return { cash, qr, card, profit, total: cash + qr + card, count: shiftTxns.length };
+    return { cash, qr, card, profit, total: cash + qr + card, count: shiftTxns.length, lakDrawer, thbDrawer, vndDrawer };
   })();
-  const expectedCash = (currentShift ? currentShift.openFloat : 0) + shiftSales.cash;
-  const countedNum = parseInt(countedCash || "0", 10) || 0;
-  const cashDiff = countedNum - expectedCash;
+  const openFloatLAK = currentShift ? (currentShift.openFloat || 0) : 0;
+  const expectedLAK = openFloatLAK + shiftSales.lakDrawer;  // ກີບທີ່ຄວນມີ (float + ຮັບກີບ - ທອນ)
+  const expectedTHB = shiftSales.thbDrawer;                 // ບາດທີ່ຄວນມີ
+  const expectedVND = shiftSales.vndDrawer;                 // ຍວນທີ່ຄວນມີ
+  const countedLAK = parseInt(countedCash || "0", 10) || 0;
+  const countedTHB = parseFloat(countTHB || "0") || 0;
+  const countedVND = parseInt(countVND || "0", 10) || 0;
+  const diffLAK = countedLAK - expectedLAK;
+  const diffTHB = countedTHB - expectedTHB;
+  const diffVND = countedVND - expectedVND;
+  // ຂາດ/ເກີນ ລວມເປັນກີບ (ແປງບາດ/ຍວນເປັນກີບແລ້ວບວກ)
+  const totalDiffLAK = diffLAK + Math.round(diffTHB * rateTHB) + Math.round(diffVND * rateVND / 1000);
+  const hasTHB = expectedTHB > 0;
+  const hasVND = expectedVND > 0;
+  const canCloseShift = countedCash !== "" && (!hasTHB || countTHB !== "") && (!hasVND || countVND !== "");
+  // backward-compat
+  const expectedCash = expectedLAK;
+  const cashDiff = totalDiffLAK;
 
   // --- ປິດກະ ---
   const closeShift = () => {
@@ -663,16 +721,21 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
       closeDate: TODAY_DATE,
       sales: shiftSales,
       expectedCash,
-      countedCash: countedNum,
+      countedCash: countedLAK,
       cashDiff,
       txnCount: shiftTxns.length,
+      // ແຍກສະກຸນ (ກີບ/ບາດ/ຍວນ)
+      rateTHB, rateVND,
+      expectedLAK, expectedTHB, expectedVND,
+      countedLAK, countedTHB, countedVND,
+      diffLAK, diffTHB, diffVND, totalDiffLAK,
     };
     setShifts(prev => [closed, ...prev]);
     // ບໍ່ລົບບິນຫຼັງປິດກະ — ໃຫ້ຢູ່ຄົບເພື່ອເບິ່ງຍ້ອນຫຼັງ
     // (ບິນຍັງມີ shiftId ໃຫ້ກອງຕາມກະໄດ້)
     setActiveShifts(prev => { const n = { ...prev }; delete n[station]; return n; });
     setShowCloseShift(false);
-    setCountedCash("");
+    setCountedCash(""); setCountTHB(""); setCountVND(""); setActiveCount("LAK");
     setClosedReceipt(closed);
   };
 
@@ -885,29 +948,67 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
               </div>
             </div>
 
-            {/* ນັບCash */}
+            {/* ນັບເງິນຈິງ ແຍກສະກຸນ */}
             <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
-                <span style={{ color: "var(--text2)" }}>Float + cash sales = expected</span>
-                <span style={{ fontWeight: 700 }}>₭{expectedCash.toLocaleString()}</span>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: "var(--amber)" }}>ນັບເງິນຈິງໃນລິ້ນຊັກ</div>
+
+              {/* ກີບ */}
+              <div onClick={() => setActiveCount("LAK")} style={{ marginBottom: 8, padding: 10, borderRadius: 8, border: "1px solid " + (activeCount === "LAK" ? "var(--border-amber)" : "var(--border)"), background: "var(--bg2)", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", marginBottom: 4 }}>
+                  <span>ກີບ ₭ — ຄວນມີ</span><span style={{ fontWeight: 700, color: "var(--text1)" }}>₭{expectedLAK.toLocaleString()}</span>
+                </div>
+                <input type="text" readOnly value={countedCash ? parseInt(countedCash).toLocaleString() : ""} placeholder="ນັບເງິນກີບ" style={{ width: "100%", background: "var(--bg1)", border: "none", borderRadius: 6, padding: "8px 10px", fontSize: 18, fontWeight: 700, textAlign: "right", fontFamily: "var(--mono)", color: "var(--text1)" }} />
               </div>
-              <label style={{ fontSize: 12, color: "var(--text2)", display: "block", marginBottom: 6 }}>Count actual cash in drawer ₭</label>
-              <input type="text" readOnly value={countedCash ? parseInt(countedCash).toLocaleString() : ""} placeholder="0" style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border-amber)", borderRadius: 8, padding: "14px", fontSize: 22, fontWeight: 700, textAlign: "right", fontFamily: "var(--mono)" }} />
-              <div style={{ marginTop: 10 }}>
-                <Numpad value={countedCash} onChange={setCountedCash} />
-              </div>
+
+              {/* ບາດ */}
+              {hasTHB && (
+                <div onClick={() => setActiveCount("THB")} style={{ marginBottom: 8, padding: 10, borderRadius: 8, border: "1px solid " + (activeCount === "THB" ? "var(--border-amber)" : "var(--border)"), background: "var(--bg2)", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", marginBottom: 4 }}>
+                    <span>ບາດ ฿ — ຄວນມີ</span><span style={{ fontWeight: 700, color: "var(--text1)" }}>{expectedTHB.toLocaleString()} ฿</span>
+                  </div>
+                  <input type="text" readOnly value={countTHB ? parseFloat(countTHB).toLocaleString() : ""} placeholder="ນັບເງິນບາດ" style={{ width: "100%", background: "var(--bg1)", border: "none", borderRadius: 6, padding: "8px 10px", fontSize: 18, fontWeight: 700, textAlign: "right", fontFamily: "var(--mono)", color: "var(--text1)" }} />
+                </div>
+              )}
+
+              {/* ຍວນ */}
+              {hasVND && (
+                <div onClick={() => setActiveCount("VND")} style={{ marginBottom: 8, padding: 10, borderRadius: 8, border: "1px solid " + (activeCount === "VND" ? "var(--border-amber)" : "var(--border)"), background: "var(--bg2)", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", marginBottom: 4 }}>
+                    <span>ຍວນ ¥ — ຄວນມີ</span><span style={{ fontWeight: 700, color: "var(--text1)" }}>{expectedVND.toLocaleString()} ¥</span>
+                  </div>
+                  <input type="text" readOnly value={countVND ? parseInt(countVND).toLocaleString() : ""} placeholder="ນັບເງິນຍວນ" style={{ width: "100%", background: "var(--bg1)", border: "none", borderRadius: 6, padding: "8px 10px", fontSize: 18, fontWeight: 700, textAlign: "right", fontFamily: "var(--mono)", color: "var(--text1)" }} />
+                </div>
+              )}
+
+              <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 6 }}>ກົ່ມຊ່ອງສະກຸນທີ່ຈະນັບ ແລ້ວໃຊ້ປຸ່ມເລກລຸ່ມນີ້</div>
+              <Numpad
+                value={activeCount === "LAK" ? countedCash : activeCount === "THB" ? countTHB : countVND}
+                onChange={val => activeCount === "LAK" ? setCountedCash(val) : activeCount === "THB" ? setCountTHB(val) : setCountVND(val)}
+              />
             </div>
 
-            {/* ຂາດ/ເກີນ */}
+            {/* ຂາດ/ເກີນ ແຍກສະກຸນ + ລວມເປັນກີບ */}
             {countedCash !== "" && (
-              <div style={{ padding: "12px 16px", borderRadius: 8, marginBottom: 16, textAlign: "center", fontWeight: 700, background: cashDiff === 0 ? "rgba(92,184,120,0.12)" : "rgba(224,90,90,0.12)", color: cashDiff === 0 ? "var(--green)" : cashDiff > 0 ? "var(--blue)" : "var(--red)" }}>
-                {cashDiff === 0 ? "✓ Balanced — no over/short" : cashDiff > 0 ? `▲ Over ₭${cashDiff.toLocaleString()}` : `▼ Short ₭${Math.abs(cashDiff).toLocaleString()}`}
+              <div style={{ marginBottom: 16, fontSize: 13 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: diffLAK === 0 ? "var(--text2)" : diffLAK > 0 ? "var(--blue)" : "var(--red)" }}>
+                  <span>ກີບ</span><span>{diffLAK === 0 ? "✓ ພໍດີ" : diffLAK > 0 ? `▲ ເກີນ ₭${diffLAK.toLocaleString()}` : `▼ ຂາດ ₭${Math.abs(diffLAK).toLocaleString()}`}</span>
+                </div>
+                {hasTHB && <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: diffTHB === 0 ? "var(--text2)" : diffTHB > 0 ? "var(--blue)" : "var(--red)" }}>
+                  <span>ບາດ</span><span>{diffTHB === 0 ? "✓ ພໍດີ" : diffTHB > 0 ? `▲ ເກີນ ${diffTHB.toLocaleString()} ฿` : `▼ ຂາດ ${Math.abs(diffTHB).toLocaleString()} ฿`}</span>
+                </div>}
+                {hasVND && <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: diffVND === 0 ? "var(--text2)" : diffVND > 0 ? "var(--blue)" : "var(--red)" }}>
+                  <span>ຍວນ</span><span>{diffVND === 0 ? "✓ ພໍດີ" : diffVND > 0 ? `▲ ເກີນ ${diffVND.toLocaleString()} ¥` : `▼ ຂາດ ${Math.abs(diffVND).toLocaleString()} ¥`}</span>
+                </div>}
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, padding: "10px 12px", borderRadius: 8, fontWeight: 700, background: totalDiffLAK === 0 ? "rgba(92,184,120,0.12)" : "rgba(224,90,90,0.12)", color: totalDiffLAK === 0 ? "var(--green)" : totalDiffLAK > 0 ? "var(--blue)" : "var(--red)" }}>
+                  <span>{totalDiffLAK === 0 ? "✓ ລວມພໍດີ" : totalDiffLAK > 0 ? "▲ ລວມເກີນ (ກີບ)" : "▼ ລວມຂາດ (ກີບ)"}</span>
+                  <span>₭{Math.abs(totalDiffLAK).toLocaleString()}</span>
+                </div>
               </div>
             )}
 
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowCloseShift(false)} style={{ flex: 1, background: "var(--bg2)", border: "none", borderRadius: 8, padding: "14px", color: "var(--text2)", cursor: "pointer" }}>Cancel</button>
-              <button onClick={closeShift} disabled={countedCash === ""} style={{ flex: 2, background: countedCash !== "" ? "var(--red)" : "var(--bg3)", border: "none", borderRadius: 8, padding: "14px", color: countedCash !== "" ? "#fff" : "var(--text3)", fontWeight: 700, cursor: countedCash !== "" ? "pointer" : "not-allowed" }}>Confirm Close</button>
+              <button onClick={closeShift} disabled={!canCloseShift} style={{ flex: 2, background: canCloseShift ? "var(--red)" : "var(--bg3)", border: "none", borderRadius: 8, padding: "14px", color: canCloseShift ? "#fff" : "var(--text3)", fontWeight: 700, cursor: canCloseShift ? "pointer" : "not-allowed" }}>Confirm Close</button>
             </div>
           </div>
         </div>
@@ -922,16 +1023,33 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
               <div style={{ fontSize: 36, fontWeight: 700, color: "var(--amber)", marginBottom: 24 }}>₭{(total || 0).toLocaleString()}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
                 {["Cash", "QR", "Card", "Split"].map(m => (
-                  <button key={m} onClick={() => { setPayMethod(m); setCashGiven(""); setQrGiven(""); setActiveInput(m === "Split" ? "qr" : "cash"); }} style={{ background: payMethod === m ? "var(--amber-glow)" : "var(--bg2)", border: "1px solid " + (payMethod === m ? "var(--border-amber)" : "var(--border)"), borderRadius: 8, padding: "12px", color: payMethod === m ? "var(--amber)" : "var(--text2)", fontWeight: 600, cursor: "pointer" }}>
+                  <button key={m} onClick={() => { setPayMethod(m); setCashGiven(""); setQrGiven(""); setPayCurrency("LAK"); setActiveInput(m === "Split" ? "qr" : "cash"); }} style={{ background: payMethod === m ? "var(--amber-glow)" : "var(--bg2)", border: "1px solid " + (payMethod === m ? "var(--border-amber)" : "var(--border)"), borderRadius: 8, padding: "12px", color: payMethod === m ? "var(--amber)" : "var(--text2)", fontWeight: 600, cursor: "pointer" }}>
                     {m === "Cash" ? "Cash" : m === "Split" ? "Split" : m}
                   </button>
                 ))}
               </div>
               <div style={{ flex: 1 }}>
                 {payMethod === "Cash" && (
-                  <div onClick={() => setActiveInput("cash")}>
-                    <label style={{ fontSize: 12, color: "var(--text2)", display: "block", marginBottom: 6 }}>Cash received (₭)</label>
-                    <input type="text" readOnly value={cashGiven ? parseInt(cashGiven).toLocaleString() : ""} onChange={() => {}} style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border-amber)", borderRadius: 8, padding: "12px 14px", color: "var(--text1)", fontSize: 20 }} />
+                  <div>
+                    {/* ເລືອກສະກຸນເງິນທີ່ຮັບ (ທອນເປັນກີບສະເໝີ) */}
+                    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                      {[["LAK", "ກີບ ₭"], ["THB", "ບາດ ฿"], ["VND", "ຍວນ ¥"]].map(([code, label]) => (
+                        <button key={code} onClick={() => { setPayCurrency(code); setCashGiven(""); }} style={{ flex: 1, background: payCurrency === code ? "var(--amber)" : "var(--bg2)", color: payCurrency === code ? "#000" : "var(--text2)", border: "1px solid " + (payCurrency === code ? "var(--amber)" : "var(--border)"), borderRadius: 8, padding: "8px 4px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>{label}</button>
+                      ))}
+                    </div>
+                    {payCurrency !== "LAK" && (
+                      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 8, background: "var(--bg2)", padding: "8px 10px", borderRadius: 8 }}>
+                        ຕ້ອງເກັບ ≈ <b style={{ color: "var(--amber)" }}>{totalInCurrency.toLocaleString(undefined, { maximumFractionDigits: payCurrency === "THB" ? 2 : 0 })} {payCurrency === "THB" ? "฿" : "¥"}</b>
+                        <span style={{ color: "var(--text3)", marginLeft: 6 }}>(₭{total.toLocaleString()})</span>
+                      </div>
+                    )}
+                    <div onClick={() => setActiveInput("cash")}>
+                      <label style={{ fontSize: 12, color: "var(--text2)", display: "block", marginBottom: 6 }}>ຮັບເງິນ ({payCurrency === "LAK" ? "₭ ກີບ" : payCurrency === "THB" ? "฿ ບາດ" : "¥ ຍວນ"})</label>
+                      <input type="text" readOnly value={cashGiven ? parseFloat(cashGiven).toLocaleString() : ""} onChange={() => {}} style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border-amber)", borderRadius: 8, padding: "12px 14px", color: "var(--text1)", fontSize: 20 }} />
+                      {payCurrency !== "LAK" && cashGiven !== "" && (
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>= ₭{cashAmt.toLocaleString()} ກີບ</div>
+                      )}
+                    </div>
                   </div>
                 )}
                 {payMethod === "Split" && (
@@ -947,7 +1065,7 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
                   </div>
                 )}
                 {(payMethod === "Cash" || payMethod === "Split") && change >= 0 && (cashGiven !== "" || qrGiven !== "") && (
-                  <div style={{ marginTop: 24, fontSize: 18, fontWeight: 700, color: "var(--green)", background: "rgba(92,184,120,0.1)", padding: "14px", borderRadius: 8, textAlign: "center" }}>Change: ₭{(change || 0).toLocaleString()}</div>
+                  <div style={{ marginTop: 24, fontSize: 18, fontWeight: 700, color: "var(--green)", background: "rgba(92,184,120,0.1)", padding: "14px", borderRadius: 8, textAlign: "center" }}>ເງິນທອນ (ກີບ): ₭{(change || 0).toLocaleString()}</div>
                 )}
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -961,7 +1079,12 @@ function POSScreen({ user, station, minimartProducts, setMinimartProducts, trans
                   value={activeInput === "cash" ? cashGiven : qrGiven}
                   onChange={val => activeInput === "cash" ? setCashGiven(val) : setQrGiven(val)}
                   withQuickAdd={true}
-                  exactAmount={activeInput === "cash" && payMethod === "Split" ? Math.max(0, total - qrAmt) : total}
+                  hideQuickAmounts={payMethod === "Cash" && payCurrency !== "LAK"}
+                  exactAmount={
+                    payMethod === "Split"
+                      ? (activeInput === "cash" ? Math.max(0, total - qrAmt) : total)
+                      : (payCurrency === "LAK" ? total : Math.ceil(totalInCurrency))
+                  }
                 />
               </div>
             )}
@@ -1002,12 +1125,39 @@ function ShiftReport({ shift, shopConfig, onDone }) {
         </div>
         <div style={{ background: "var(--bg2)", borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>Opening float</span><span>₭{(shift.openFloat || 0).toLocaleString()}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>Expected in drawer</span><span>₭{(shift.expectedCash || 0).toLocaleString()}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>Counted</span><span>₭{(shift.countedCash || 0).toLocaleString()}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 6, color: shift.cashDiff === 0 ? "var(--green)" : shift.cashDiff > 0 ? "var(--blue)" : "var(--red)" }}>
-            <span>{shift.cashDiff === 0 ? "✓ Balanced" : shift.cashDiff > 0 ? "▲ Over" : "▼ Short"}</span>
-            <span>₭{Math.abs(shift.cashDiff || 0).toLocaleString()}</span>
-          </div>
+          {shift.expectedLAK != null ? (
+            <>
+              <div style={{ borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>ກີບ ຄວນມີ / ນັບໄດ້</span><span>₭{(shift.expectedLAK || 0).toLocaleString()} / ₭{(shift.countedLAK || 0).toLocaleString()}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: (shift.diffLAK || 0) === 0 ? "var(--green)" : (shift.diffLAK || 0) > 0 ? "var(--blue)" : "var(--red)" }}><span>ກີບ</span><span>{(shift.diffLAK || 0) === 0 ? "✓ ພໍດີ" : (shift.diffLAK || 0) > 0 ? `▲ ເກີນ ₭${shift.diffLAK.toLocaleString()}` : `▼ ຂາດ ₭${Math.abs(shift.diffLAK).toLocaleString()}`}</span></div>
+              </div>
+              {(shift.expectedTHB > 0 || shift.countedTHB > 0) && (
+                <div style={{ borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>ບາດ ຄວນມີ / ນັບໄດ້</span><span>{(shift.expectedTHB || 0).toLocaleString()} / {(shift.countedTHB || 0).toLocaleString()} ฿</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: (shift.diffTHB || 0) === 0 ? "var(--green)" : (shift.diffTHB || 0) > 0 ? "var(--blue)" : "var(--red)" }}><span>ບາດ</span><span>{(shift.diffTHB || 0) === 0 ? "✓ ພໍດີ" : (shift.diffTHB || 0) > 0 ? `▲ ເກີນ ${shift.diffTHB.toLocaleString()} ฿` : `▼ ຂາດ ${Math.abs(shift.diffTHB).toLocaleString()} ฿`}</span></div>
+                </div>
+              )}
+              {(shift.expectedVND > 0 || shift.countedVND > 0) && (
+                <div style={{ borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>ຍວນ ຄວນມີ / ນັບໄດ້</span><span>{(shift.expectedVND || 0).toLocaleString()} / {(shift.countedVND || 0).toLocaleString()} ¥</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: (shift.diffVND || 0) === 0 ? "var(--green)" : (shift.diffVND || 0) > 0 ? "var(--blue)" : "var(--red)" }}><span>ຍວນ</span><span>{(shift.diffVND || 0) === 0 ? "✓ ພໍດີ" : (shift.diffVND || 0) > 0 ? `▲ ເກີນ ${shift.diffVND.toLocaleString()} ¥` : `▼ ຂາດ ${Math.abs(shift.diffVND).toLocaleString()} ¥`}</span></div>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 6, color: (shift.totalDiffLAK || 0) === 0 ? "var(--green)" : (shift.totalDiffLAK || 0) > 0 ? "var(--blue)" : "var(--red)" }}>
+                <span>{(shift.totalDiffLAK || 0) === 0 ? "✓ ລວມພໍດີ" : (shift.totalDiffLAK || 0) > 0 ? "▲ ລວມເກີນ (ກີບ)" : "▼ ລວມຂາດ (ກີບ)"}</span>
+                <span>₭{Math.abs(shift.totalDiffLAK || 0).toLocaleString()}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>Expected in drawer</span><span>₭{(shift.expectedCash || 0).toLocaleString()}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text2)" }}>Counted</span><span>₭{(shift.countedCash || 0).toLocaleString()}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 6, color: shift.cashDiff === 0 ? "var(--green)" : shift.cashDiff > 0 ? "var(--blue)" : "var(--red)" }}>
+                <span>{shift.cashDiff === 0 ? "✓ Balanced" : shift.cashDiff > 0 ? "▲ Over" : "▼ Short"}</span>
+                <span>₭{Math.abs(shift.cashDiff || 0).toLocaleString()}</span>
+              </div>
+            </>
+          )}
         </div>
         <div className="no-print" style={{ display: "flex", gap: 10 }}>
           <button onClick={printShift} style={{ flex: 1, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px", color: "#fff", cursor: "pointer" }}>🖨️ Print Report</button>
@@ -1019,32 +1169,90 @@ function ShiftReport({ shift, shopConfig, onDone }) {
 }
 
 function ReceiptView({ receipt, shopConfig, onDone, reprint }) {
+  const [lang, setLang] = useState("lo");
+  const t = RECEIPT_LANG[lang] || RECEIPT_LANG.lo;
+  const cur = "₭";
+  const fmt = (n) => cur + (n || 0).toLocaleString();
+  const total = receipt.total || 0;
+  const subtotal = Math.round(total / 1.1); // ລາຄາ VAT-inclusive → ແຍກສ່ວນ VAT ອອກ
+  const vat = total - subtotal;
+  const payLabel = receipt.method === "Cash" ? t.cash
+    : receipt.method === "QR" ? t.transfer
+    : receipt.method === "Card" ? t.card
+    : receipt.method === "Split" ? t.split
+    : receipt.method;
+  const showReceived = (receipt.method === "Cash" || receipt.method === "Split") && receipt.cashReceived != null;
+  const isForeign = receipt.payCurrency && receipt.payCurrency !== "LAK" && receipt.foreignReceived != null;
+  const curSym = receipt.payCurrency === "THB" ? "฿" : receipt.payCurrency === "VND" ? "¥" : "₭";
+  const cjkFont = "'Sora','Noto Sans SC','Noto Sans KR','Microsoft YaHei','Malgun Gothic',sans-serif";
+  const row = { display: "flex", justifyContent: "space-between" };
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 56px)", background: "var(--bg0)" }}>
-      <div id="printable-receipt" style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 16, padding: 16, width: 320 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", height: "calc(100vh - 56px)", background: "var(--bg0)", overflowY: "auto", paddingTop: 16, paddingBottom: 16 }}>
+      {/* ເລືອກພາສາພິມ — ບໍ່ພິມ */}
+      <div className="no-print" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginBottom: 12, maxWidth: 360 }}>
+        {RECEIPT_LANG_ORDER.map(code => (
+          <button key={code} onClick={() => setLang(code)} style={{ background: lang === code ? "var(--amber)" : "var(--bg2)", color: lang === code ? "#000" : "var(--text2)", border: "1px solid " + (lang === code ? "var(--amber)" : "var(--border)"), borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>{RECEIPT_LANG[code].name}</button>
+        ))}
+      </div>
+
+      <div id="printable-receipt" style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 16, padding: 16, width: 320, fontFamily: cjkFont }}>
+        {/* ຫົວບິນ */}
         <div style={{ textAlign: "center", marginBottom: 6 }}>
           {shopConfig.logo && <img src={shopConfig.logo} alt="" style={{ height: 36, objectFit: "contain", marginBottom: 2 }} onError={e => e.target.style.display = "none"} />}
           <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text1)", marginBottom: 2, fontFamily: "var(--script)" }}>{shopConfig.name}</div>
           {shopConfig.promptPay && <div style={{ fontSize: 10, color: "var(--text2)", marginBottom: 2 }}>Tel: {shopConfig.promptPay}</div>}
-          {reprint && <div style={{ fontSize: 11, fontWeight: 700, color: "var(--blue)", marginBottom: 2 }}>*** COPY ***</div>}
-          <div style={{ fontSize: 10, color: "var(--text2)" }}>{receipt.date} {receipt.time} · #{(receipt.id || "").slice(-6)}</div>
+          {reprint && <div style={{ fontSize: 11, fontWeight: 700, color: "var(--blue)", marginBottom: 2 }}>{t.copy}</div>}
         </div>
-        <div style={{ borderTop: "1px dashed var(--border)", borderBottom: "1px dashed var(--border)", padding: "6px 0", margin: "6px 0" }}>
+
+        {/* ຂໍ້ມູນບິນ: ເລກບິນ / ວັນທີ / ເວລາ / ພະນັກງານ / ສະກຸນເງິນ */}
+        <div style={{ fontSize: 11, color: "var(--text2)", borderTop: "1px dashed var(--border)", paddingTop: 6, marginBottom: 4, lineHeight: 1.6 }}>
+          <div style={row}><span>{t.billNo}</span><span style={{ fontFamily: "var(--mono)" }}>{receipt.id}</span></div>
+          <div style={row}><span>{t.date}</span><span>{receipt.date}</span></div>
+          <div style={row}><span>{t.time}</span><span>{receipt.time}</span></div>
+          <div style={row}><span>{t.cashier}</span><span>{receipt.cashier || "-"}</span></div>
+          <div style={row}><span>{t.currency}</span><span>LAK (₭)</span></div>
+        </div>
+
+        {/* ລາຍການສິນຄ້າ */}
+        <div style={{ borderTop: "1px dashed var(--border)", borderBottom: "1px dashed var(--border)", padding: "6px 0", margin: "4px 0" }}>
+          <div style={{ ...row, fontSize: 10, color: "var(--text3)", marginBottom: 4, fontWeight: 600 }}>
+            <span>{t.item}</span><span>{cur}</span>
+          </div>
           {(receipt.cartItems || []).map(i => (
-            <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>
+            <div key={i.id} style={{ ...row, fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>
               <span style={{ flex: 1, paddingRight: 6 }}>{i.name} ×{i.qty}</span>
-              <span style={{ fontFamily: "var(--mono)" }}>₭{(i.price * i.qty).toLocaleString()}</span>
+              <span style={{ fontFamily: "var(--mono)" }}>{fmt(i.price * i.qty)}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, marginBottom: 2 }}>
-          <span>Total</span><span style={{ color: "var(--amber)" }}>₭{(receipt.total || 0).toLocaleString()}</span>
+
+        {/* ມູນຄ່າສິນຄ້າ / VAT / ລວມ */}
+        <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>
+          <div style={{ ...row, marginBottom: 2 }}><span>{t.subtotal}</span><span style={{ fontFamily: "var(--mono)" }}>{fmt(subtotal)}</span></div>
+          <div style={{ ...row, marginBottom: 4 }}><span>{t.vat}</span><span style={{ fontFamily: "var(--mono)" }}>{fmt(vat)}</span></div>
         </div>
-        <div style={{ fontSize: 11, color: "var(--text2)", marginBottom: 10, textAlign: "right" }}>
-          Paid: {receipt.method === "Split" ? `QR ₭${(receipt.revenueQR || 0).toLocaleString()} + Cash ₭${(receipt.revenueCash || 0).toLocaleString()}` : receipt.method}
+        <div style={{ ...row, fontSize: 16, fontWeight: 700, marginBottom: 6, borderTop: "1px solid var(--border)", paddingTop: 4 }}>
+          <span>{t.total}</span><span style={{ color: "var(--amber)" }}>{fmt(total)}</span>
         </div>
-        <div className="no-print" style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => { document.body.classList.add("printing-receipt"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing-receipt"), 300); }, 80); }} style={{ flex: 1, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px", color: "#fff", cursor: "pointer" }}>🖨️ Print</button>
+
+        {/* ການຈ່າຍເງິນ / ຮັບເງິນ / ເງິນທອນ */}
+        <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, marginBottom: 8 }}>
+          <div style={row}><span>{t.pay}</span><span style={{ fontWeight: 600, color: "var(--text1)" }}>{payLabel}{isForeign ? ` (${curSym})` : ""}</span></div>
+          {receipt.method === "Split" && <div style={{ ...row, fontSize: 11 }}><span></span><span>{t.transfer} {fmt(receipt.revenueQR)} + {t.cash} {fmt(receipt.revenueCash)}</span></div>}
+          {showReceived && isForeign && <div style={row}><span>{t.received}</span><span style={{ fontFamily: "var(--mono)" }}>{(receipt.foreignReceived || 0).toLocaleString()} {curSym} = {fmt(receipt.cashReceived)}</span></div>}
+          {showReceived && !isForeign && <div style={row}><span>{t.received}</span><span style={{ fontFamily: "var(--mono)" }}>{fmt(receipt.cashReceived)}</span></div>}
+          {showReceived && <div style={row}><span>{t.change}</span><span style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--text1)" }}>{fmt(receipt.change)}</span></div>}
+        </div>
+
+        {/* ທ້າຍບິນ */}
+        <div style={{ borderTop: "1px dashed var(--border)", paddingTop: 6, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: "var(--text2)", marginBottom: 3, lineHeight: 1.4 }}>{t.footer}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text1)" }}>{t.thanks}</div>
+        </div>
+
+        {/* ປຸ່ມ — ບໍ່ພິມ */}
+        <div className="no-print" style={{ display: "flex", gap: 10, marginTop: 12 }}>
+          <button onClick={() => { document.body.classList.add("printing-receipt"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing-receipt"), 300); }, 80); }} style={{ flex: 1, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px", color: "var(--text1)", cursor: "pointer" }}>🖨️ Print</button>
           <button onClick={onDone} style={{ flex: 1, background: "var(--amber)", border: "none", borderRadius: 10, padding: "12px", color: "#000", fontWeight: 700, cursor: "pointer" }}>{reprint ? "Back" : "New Order"}</button>
         </div>
       </div>
@@ -1994,6 +2202,23 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
                 <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Products expiring within {shopConfig.expiryWarnDays ?? DEFAULT_EXPIRY_WARN_DAYS} days will be flagged</div>
               </div>
 
+              {/* ===== ເລດແລກປ່ຽນເງິນ (ບາດ / ຍວນ → ກີບ) ===== */}
+              <div style={{ marginTop: 18, padding: 14, background: "var(--bg2)", borderRadius: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", marginBottom: 4 }}>💱 ເລດແລກປ່ຽນເງິນ</div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 12 }}>ໃຊ້ຄິດເງິນຕອນຮັບເງິນສົດບາດ/ຍວນ — ທອນເປັນກີບສະເໝີ</div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 170 }}>
+                    <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>1 ບາດ (THB) = ? ກີບ</label>
+                    <input type="number" value={shopConfig.rateTHB ?? 630} onChange={e => setShopConfig({ ...shopConfig, rateTHB: parseFloat(e.target.value) || 0 })} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 170 }}>
+                    <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>1,000 ຍວນ (VND) = ? ກີບ</label>
+                    <input type="number" value={shopConfig.rateVND ?? 850} onChange={e => setShopConfig({ ...shopConfig, rateVND: parseFloat(e.target.value) || 0 })} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 8 }}>ຕົວຢ່າງ: 1 ບາດ = {(shopConfig.rateTHB ?? 630).toLocaleString()} ກີບ · 1,000 ຍວນ = {(shopConfig.rateVND ?? 850).toLocaleString()} ກີບ</div>
+              </div>
+
               <div style={{ marginTop: 18, padding: 14, background: "var(--bg2)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)" }}>Allow selling beyond stock</div>
@@ -2424,7 +2649,9 @@ export default function App() {
     promptPay: "020 9166 1936",
     qrImage: "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=TimB_CoffeeBar",
     logo: "/logo.png",
-    allowNegativeStock: true
+    allowNegativeStock: true,
+    rateTHB: 630,
+    rateVND: 850
   });
   const [adminReprintTxn, setAdminReprintTxn] = useState(null);
 
