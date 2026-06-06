@@ -1433,6 +1433,9 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
     const card = dashboardTxns.reduce((s, t) => t.method === "Card" ? s + (t.total || 0) : s, 0);
     const profit = dashboardTxns.reduce((s, t) => s + (t.profit || 0), 0);
     const cost = dashboardTxns.reduce((s, t) => s + (t.cost || 0), 0);
+    // ເງິນສົດຕ່າງປະເທດທີ່ຮັບຈິງ (ຈຳນວນບາດ/ຍວນ)
+    const thbReceived = dashboardTxns.reduce((s, t) => (t.payCurrency === "THB" && t.foreignReceived) ? s + t.foreignReceived : s, 0);
+    const vndReceived = dashboardTxns.reduce((s, t) => (t.payCurrency === "VND" && t.foreignReceived) ? s + t.foreignReceived : s, 0);
     // ແຍກTotalຕາມStnຂາຍ (ພ້ອມແຍກ ສົດ/ໂອນ/Card)
     const byStation = {};
     dashboardTxns.forEach(t => {
@@ -1447,7 +1450,7 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
       else if (t.method === "QR") byStation[st].qr += (t.total || 0);
       else if (t.method === "Card") byStation[st].card += (t.total || 0);
     });
-    return { total, cash, qr, card, profit, cost, count: dashboardTxns.length, byStation };
+    return { total, cash, qr, card, profit, cost, count: dashboardTxns.length, byStation, thbReceived, vndReceived };
   })();
 
   // --- ນຳຂໍ້ມູນProductLog out (Export CSV) ---
@@ -1753,6 +1756,23 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
               <div style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
                 <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 8 }}>💳 Card (Card)</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: "var(--amber)" }}>₭{(summary.card || 0).toLocaleString()}</div>
+              </div>
+            </div>
+
+            {/* ເງິນສົດຕ່າງປະເທດທີ່ຮັບ + ຍອດລວມ */}
+            <div style={{ fontSize: 15, fontWeight: 700, margin: "28px 0 14px" }}>💱 ເງິນສົດຕ່າງປະເທດທີ່ຮັບ</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+              <div style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 8 }}>฿ ເງິນບາດ (THB)</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--blue)" }}>{(summary.thbReceived || 0).toLocaleString()} ฿</div>
+              </div>
+              <div style={{ background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 8 }}>¥ ເງິນຍວນ (VND)</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--green)" }}>{(summary.vndReceived || 0).toLocaleString()} ¥</div>
+              </div>
+              <div style={{ background: "var(--bg1)", border: "1px solid var(--border-amber)", borderRadius: 12, padding: 20 }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 8 }}>💰 ຍອດລວມ (ກີບ)</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--amber)" }}>₭{(summary.total || 0).toLocaleString()}</div>
               </div>
             </div>
 
