@@ -2684,6 +2684,7 @@ export default function App() {
   // ໃຊ້ໄດ້ເມື່ອຕັ້ງ firebase.js ແລ້ວ; ຖ້າຍັງບໍ່ໄດ້ຕັ້ງ ຈະໃຊ້ state ໃນເຄື່ອງ (ບໍ່ error)
   const fbRef = useRef({ ready: false, save: null });
   const loadedRef = useRef({ products: false, txns: false, users: false, config: false, shifts: false, stats: false, receive: false });
+  const appliedRef = useRef({}); // ເກັບ JSON ຄ່າລ່າສຸດທີ່ sync/save ແລ້ວ — ກັນ loop ບັນທຶກ↔echo
   const [fbStatus, setFbStatus] = useState("connecting");
 
   useEffect(() => {
@@ -2702,11 +2703,11 @@ export default function App() {
           if (Array.isArray(list) && list.length > 0) setMinimartProducts(list);
         });
         unsubs.push(fb.watchTransactions((v) => { loadedRef.current.txns = true; if (Array.isArray(v)) setTransactions(v); }));
-        unsubs.push(fb.watchDoc("users", (v) => { loadedRef.current.users = true; if (Array.isArray(v)) setUsers(v); }));
-        unsubs.push(fb.watchDoc("config", (v) => { loadedRef.current.config = true; if (v) setShopConfig(v); }));
-        unsubs.push(fb.watchDoc("shifts", (v) => { loadedRef.current.shifts = true; if (Array.isArray(v)) setShifts(v); }));
-        unsubs.push(fb.watchDoc("salesStats", (v) => { loadedRef.current.stats = true; if (v) setSalesStats(v); }));
-        unsubs.push(fb.watchDoc("receiveLog", (v) => { loadedRef.current.receive = true; if (Array.isArray(v)) setReceiveLog(v); }));
+        unsubs.push(fb.watchDoc("users", (v) => { loadedRef.current.users = true; const j = JSON.stringify(v); if (Array.isArray(v) && j !== appliedRef.current.users) { appliedRef.current.users = j; setUsers(v); } }));
+        unsubs.push(fb.watchDoc("config", (v) => { loadedRef.current.config = true; const j = JSON.stringify(v); if (v && j !== appliedRef.current.config) { appliedRef.current.config = j; setShopConfig(v); } }));
+        unsubs.push(fb.watchDoc("shifts", (v) => { loadedRef.current.shifts = true; const j = JSON.stringify(v); if (Array.isArray(v) && j !== appliedRef.current.shifts) { appliedRef.current.shifts = j; setShifts(v); } }));
+        unsubs.push(fb.watchDoc("salesStats", (v) => { loadedRef.current.stats = true; const j = JSON.stringify(v); if (v && j !== appliedRef.current.stats) { appliedRef.current.stats = j; setSalesStats(v); } }));
+        unsubs.push(fb.watchDoc("receiveLog", (v) => { loadedRef.current.receive = true; const j = JSON.stringify(v); if (Array.isArray(v) && j !== appliedRef.current.receive) { appliedRef.current.receive = j; setReceiveLog(v); } }));
         setFbStatus("online");
       } catch (e) {
         console.warn("Firebase not ready — using local data:", e?.message);
@@ -2718,11 +2719,11 @@ export default function App() {
 
   // ບໍ່ໃຊ້ bulk save ສຳລັບ products ອີກແລ້ວ — ໃຊ້ saveOneProduct/deleteOneProduct ໂດຍກົງ
   // ບໍ່ໃຊ້ bulk save ສຳລັບ transactions ອີກແລ້ວ — ຂາຍແຕ່ລະບິນຈະຖືກ save ໂດຍກົງດ້ວຍ saveOneTransaction
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.users) fbRef.current.save("users", users); }, [users]);
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.config) fbRef.current.save("config", shopConfig); }, [shopConfig]);
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.shifts) fbRef.current.save("shifts", shifts); }, [shifts]);
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.stats) fbRef.current.save("salesStats", salesStats); }, [salesStats]);
-  useEffect(() => { if (fbRef.current.ready && loadedRef.current.receive) fbRef.current.save("receiveLog", receiveLog); }, [receiveLog]);
+  useEffect(() => { if (!fbRef.current.ready || !loadedRef.current.users) return; const j = JSON.stringify(users); if (j === appliedRef.current.users) return; appliedRef.current.users = j; fbRef.current.save("users", users); }, [users]);
+  useEffect(() => { if (!fbRef.current.ready || !loadedRef.current.config) return; const j = JSON.stringify(shopConfig); if (j === appliedRef.current.config) return; appliedRef.current.config = j; fbRef.current.save("config", shopConfig); }, [shopConfig]);
+  useEffect(() => { if (!fbRef.current.ready || !loadedRef.current.shifts) return; const j = JSON.stringify(shifts); if (j === appliedRef.current.shifts) return; appliedRef.current.shifts = j; fbRef.current.save("shifts", shifts); }, [shifts]);
+  useEffect(() => { if (!fbRef.current.ready || !loadedRef.current.stats) return; const j = JSON.stringify(salesStats); if (j === appliedRef.current.stats) return; appliedRef.current.stats = j; fbRef.current.save("salesStats", salesStats); }, [salesStats]);
+  useEffect(() => { if (!fbRef.current.ready || !loadedRef.current.receive) return; const j = JSON.stringify(receiveLog); if (j === appliedRef.current.receive) return; appliedRef.current.receive = j; fbRef.current.save("receiveLog", receiveLog); }, [receiveLog]);
 
   const [syncData, setSyncData] = useState({ cart: [], total: 0, shopConfig, receipt: null });
 
