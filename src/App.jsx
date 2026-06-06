@@ -1288,6 +1288,11 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
   const [adminSearch, setAdminSearch] = useState("");
   const [adminSearchDebounced, setAdminSearchDebounced] = useState("");
   const [adminVisible, setAdminVisible] = useState(50);
+  // ຊ່ອງໃສ່ເລດ — ໃຊ້ local state ໃຫ້ພິມໄດ້ອິດສະຫຼະ, ບັນທຶກຕອນພິມຈົບ (onBlur)
+  const [rateTHBStr, setRateTHBStr] = useState(String(shopConfig.rateTHB ?? 630));
+  const [rateVNDStr, setRateVNDStr] = useState(String(shopConfig.rateVND ?? 850));
+  useEffect(() => { setRateTHBStr(String(shopConfig.rateTHB ?? 630)); }, [shopConfig.rateTHB]);
+  useEffect(() => { setRateVNDStr(String(shopConfig.rateVND ?? 850)); }, [shopConfig.rateVND]);
 
   useEffect(() => {
     const t = setTimeout(() => setAdminSearchDebounced(adminSearch), 200);
@@ -2229,11 +2234,11 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 170 }}>
                     <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>1 ບາດ (THB) = ? ກີບ</label>
-                    <input type="number" value={shopConfig.rateTHB ?? 630} onChange={e => setShopConfig({ ...shopConfig, rateTHB: parseFloat(e.target.value) || 0 })} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
+                    <input type="text" inputMode="decimal" value={rateTHBStr} onChange={e => setRateTHBStr(e.target.value.replace(/[^0-9.]/g, ""))} onBlur={() => { const n = parseFloat(rateTHBStr) || 0; setRateTHBStr(String(n)); setShopConfig({ ...shopConfig, rateTHB: n }); }} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 170 }}>
                     <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>1,000 ຍວນ (VND) = ? ກີບ</label>
-                    <input type="number" value={shopConfig.rateVND ?? 850} onChange={e => setShopConfig({ ...shopConfig, rateVND: parseFloat(e.target.value) || 0 })} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
+                    <input type="text" inputMode="decimal" value={rateVNDStr} onChange={e => setRateVNDStr(e.target.value.replace(/[^0-9.]/g, ""))} onBlur={() => { const n = parseFloat(rateVNDStr) || 0; setRateVNDStr(String(n)); setShopConfig({ ...shopConfig, rateVND: n }); }} style={{ width: "100%", background: "var(--bg1)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 8 }}>ຕົວຢ່າງ: 1 ບາດ = {(shopConfig.rateTHB ?? 630).toLocaleString()} ກີບ · 1,000 ຍວນ = {(shopConfig.rateVND ?? 850).toLocaleString()} ກີບ</div>
