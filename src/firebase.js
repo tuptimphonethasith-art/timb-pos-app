@@ -30,7 +30,8 @@ export async function saveDoc(name, data) {
 
 export function watchDoc(name, callback) {
   return onSnapshot(doc(db, "shops", SHOP, "data", name), (snap) => {
-    if (snap.exists()) callback(snap.data().value);
+    // ແຈ້ງເຕືອນສະເໝີ (ເຖິງ doc ຍັງບໍ່ມີ → ສົ່ງ null) ເພື່ອໃຫ້ການບັນທຶກເລີ່ມໄດ້ + sync ການຕັ້ງຄ່າ
+    callback(snap.exists() ? snap.data().value : null);
   }, (err) => console.error("watchDoc " + name, err));
 }
 
