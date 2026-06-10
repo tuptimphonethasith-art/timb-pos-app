@@ -148,7 +148,7 @@ const css = `
     }
 
     body.printing-receipt #printable-receipt {
-      position: absolute; left: 0; top: 0; width: 72mm; margin: 0; padding: 2mm 3mm; border: none !important; font-size: 11px !important; line-height: 1.3 !important;
+      position: absolute; left: 0; top: 0; width: 72mm; box-sizing: border-box; margin: 0; padding: 2mm 2.5mm; border: none !important; font-size: 12px !important; line-height: 1.35 !important;
     }
     body.printing-labels #printable-labels {
       position: absolute; left: 0; top: 0; width: 100%;
@@ -2218,8 +2218,48 @@ function AdminScreen({ transactions, setTransactions, shifts, salesStats, receiv
                 <input value={shopConfig.promptPay} onChange={e => setShopConfig({ ...shopConfig, promptPay: e.target.value })} style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
               </div>
               <div>
-                <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>QR Code Image URL</label>
-                <input value={shopConfig.qrImage} onChange={e => setShopConfig({ ...shopConfig, qrImage: e.target.value })} style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px", color: "#fff" }} />
+                <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>QR ຮັບເງິນ (ອັບໂຫຼດຮູບ ຫຼື ໃສ່ URL)</label>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ width: 90, height: 90, borderRadius: 10, background: "#fff", border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                    {shopConfig.qrImage
+                      ? <img src={shopConfig.qrImage} alt="QR" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={e => { e.target.style.display = "none"; }} />
+                      : <span style={{ fontSize: 28, color: "var(--text3)" }}>🏧</span>
+                    }
+                  </div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ background: "var(--amber)", color: "#fff", padding: "8px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13, textAlign: "center" }}>
+                      📁 ອັບໂຫຼດຮູບ QR
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        if (file.size > 2 * 1024 * 1024) { setErrorMsg("ຮູບໃຫຍ່ເກີນ (ສູງສຸດ 2MB) ກະລຸນາເລືອກຮູບນ້ອຍກວ່າ"); return; }
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const max = 600; // ໃຫຍ່ພໍໃຫ້ scan ໄດ້ຊັດ
+                            const scale = Math.min(1, max / Math.max(img.width, img.height));
+                            const canvas = document.createElement("canvas");
+                            canvas.width = img.width * scale;
+                            canvas.height = img.height * scale;
+                            canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const dataUrl = canvas.toDataURL("image/png"); // PNG ໃຫ້ QR ຄົມ scan ໄດ້ດີ
+                            setShopConfig({ ...shopConfig, qrImage: dataUrl });
+                            setErrorMsg("");
+                          };
+                          img.src = ev.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }} />
+                    </label>
+                    {shopConfig.qrImage && (
+                      <button onClick={() => setShopConfig({ ...shopConfig, qrImage: "" })} style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--red)", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>✕ ລຶບຮູບ QR</button>
+                    )}
+                    <input value={typeof shopConfig.qrImage === "string" && shopConfig.qrImage.startsWith("data:") ? "" : (shopConfig.qrImage || "")} onChange={e => setShopConfig({ ...shopConfig, qrImage: e.target.value })} placeholder="ຫຼື ວາງ URL ຮູບ QR ທີ່ນີ້" style={{ width: "100%", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px", color: "#fff", fontSize: 12 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>ອັບໂຫຼດຮູບ QR ຈາກເຄື່ອງ (ຖ່າຍ/save ມາ) ຫຼື ວາງ URL ກໍໄດ້ — ຮູບຈະຂຶ້ນຕອນລູກຄ້າຈ່າຍ QR</div>
               </div>
               <div style={{ marginTop: 14 }}>
                 <label style={{ fontSize: 12, display: "block", marginBottom: 6, color: "var(--text2)" }}>Expiry warning (days)</label>
